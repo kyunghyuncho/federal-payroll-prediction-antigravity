@@ -34,9 +34,12 @@ class SalaryDataModule(pl.LightningDataModule):
         y = target_data
         
         # 5. Train / Test Split
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=self.test_size, random_state=42
+        indices = np.arange(len(self.df))
+        X_train, X_val, y_train, y_val, idx_train, idx_val = train_test_split(
+            X, y, indices, test_size=self.test_size, random_state=42
         )
+        self.df_train = self.df.iloc[idx_train].reset_index(drop=True)
+        self.df_val = self.df.iloc[idx_val].reset_index(drop=True)
         
         # 6. Convert to PyTorch Tensors
         X_train_tensor = torch.tensor(X_train, dtype=torch.float32)

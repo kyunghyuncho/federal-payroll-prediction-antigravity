@@ -170,12 +170,50 @@ if "model" in st.session_state:
             
         st.plotly_chart(plot_quantile_bands(all_targets, all_preds), use_container_width=True)
         
+    from sklearn.metrics.pairwise import cosine_similarity
+
     st.markdown("---")
     st.subheader("2D Representation of Job Descriptions (PCA)")
-    fig_actual, fig_pred = plot_pca_features(all_embeddings, all_targets, point_preds)
+    st.markdown("*(Click on any dot to see the job details card below!)*")
+    
+    fig_actual, fig_pred = plot_pca_features(all_embeddings, all_targets, point_preds, datamodule.df_val)
     
     col_pca1, col_pca2 = st.columns(2)
     with col_pca1:
-        st.plotly_chart(fig_actual, use_container_width=True)
+        sel_actual = st.plotly_chart(fig_actual, use_container_width=True, on_select="rerun", selection_mode="points")
     with col_pca2:
-        st.plotly_chart(fig_pred, use_container_width=True)
+        sel_pred = st.plotly_chart(fig_pred, use_container_width=True, on_select="rerun", selection_mode="points")
+        
+    def get_selected_index(sel):
+        if sel and hasattr(sel, "selection"):
+            pts = sel.selection.get("points", [])
+            if pts:
+                return pts[0]["point_index"]
+        if isinstance(sel, dict) and "selection" in sel:
+            pts = sel["selection"].get("points", [])
+            if pts:
+                return pts[0]["point_index"]
+        return None
+
+    selected_idx = get_selected_index(sel_actual)
+    if selected_idx is None:
+        selected_idx = get_selected_index(sel_pred)
+        
+    if selected_idx is not None:
+        st.markdown("---")
+        st.subheader("Job Details Card")
+        job_row = datamodule.df_val.iloc[selected_idx]
+        
+        st.info(f"**Actual Salary:** ${job_row['Target_Salary']:,.2f} | **Predicted Salary:** ${point_preds[selected_idx]:,.2f} | **Year:** {job_row['Year']}")
+        st.write(f"**Description:** {job_row['Description']}")
+        
+        st.markdown("#### Nearest Neighbor Jobs")
+        query_emb = all_embeddings[selected_idx].reshape(1, -1)
+        sims = cosine_similarity(query_emb, all_embeddings)[0]
+        
+        top_indices = np.argsort(sims)[::-1][1:4]
+        
+        for idx in top_indices:
+            nn_row = datamodule.df_val.iloc[idx]
+            nn_sim = sims[idx]
+            st.markdown(f"- **Similarity: {nn_sim:.2f}** | **Salary:** ${nn_row['Target_Salary']:,.2f} | *{str(nn_row['Description'])[:200]}...*")

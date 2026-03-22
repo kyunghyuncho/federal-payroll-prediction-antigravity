@@ -85,3 +85,32 @@ def plot_quantile_bands(y_true, q_preds, title="Quantile Predictions (10th - 50t
     )
     
     return fig
+
+from sklearn.decomposition import PCA
+
+def plot_pca_features(embeddings, actual, predicted, title="PCA of Job Descriptions"):
+    pca = PCA(n_components=2)
+    components = pca.fit_transform(embeddings)
+    
+    df = pd.DataFrame({
+        'PCA1': components[:, 0],
+        'PCA2': components[:, 1],
+        'Actual Salary': actual,
+        'Predicted Salary': predicted
+    })
+    
+    fig_actual = px.scatter(
+        df, x='PCA1', y='PCA2', color='Actual Salary',
+        color_continuous_scale='Viridis',
+        title=title + " (Actual Salary)",
+        opacity=0.7
+    )
+    
+    fig_pred = px.scatter(
+        df, x='PCA1', y='PCA2', color='Predicted Salary',
+        color_continuous_scale='Viridis',
+        title=title + " (Predicted Salary)",
+        opacity=0.7
+    )
+    
+    return fig_actual, fig_pred

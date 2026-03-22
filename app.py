@@ -1,18 +1,20 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import torch
 import pytorch_lightning as pl
 import os
+from sentence_transformers import SentenceTransformer
 
 from src.data import SalaryDataModule
 from src.model import SalaryPredictor
 from src.callbacks import StreamlitLiveMetrics
-from src.visualization import plot_residual_distribution, plot_actual_vs_predicted, plot_quantile_bands
+from src.visualization import plot_residual_distribution, plot_actual_vs_predicted, plot_quantile_bands, plot_pca_features
 
 st.set_page_config(layout="wide", page_title="Federal Salary Predictor")
 
-st.title("Federal Salary Prediction: Comparative Analysis")
-st.markdown("Explore how different loss functions (MSE, MAE, Quantile Distribution) change neural network outputs for federal job salaries using Nomic embeddings.")
+st.title("Federal Salary Prediction: Interactive Dashboard")
+st.markdown("Explore how different loss functions (MSE, MAE, Quantile Distribution) change neural network outputs for federal job salaries using HuggingFace embeddings.")
 
 # Sidebar
 st.sidebar.header("Architecture")
@@ -23,7 +25,7 @@ dropout_rate = st.sidebar.slider("Dropout Rate", 0.0, 0.5, 0.2, step=0.05)
 st.sidebar.header("Optimization")
 lr = st.sidebar.selectbox("Learning Rate", [1e-4, 5e-4, 1e-3, 5e-3, 1e-2], index=2)
 batch_size = st.sidebar.select_slider("Batch Size", options=[16, 32, 64, 128, 256], value=32)
-max_epochs = st.sidebar.slider("Epochs", 5, 50, 15)
+max_epochs = st.sidebar.slider("Epochs", 5, 500, 15)
 
 st.sidebar.header("Objective")
 loss_type = st.sidebar.radio("Loss Function", ["MSE", "MAE", "Quantile"], help="MSE penalizes outliers. MAE is median-seeking. Quantile plots simultaneous percentiles.")
@@ -42,42 +44,83 @@ if df is None:
 
 st.write(f"**Loaded {len(df)} samples into memory.**")
 
-if st.button("Train Model"):
-    st.subheader(f"Training MLP with {loss_type} Loss")
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
+# Layout columns for Train and Interactive Predictor side-by-side
+col_left, col_right = st.columns([1, 1])
+
+with col_left:
+    if st.button("Train Model"):
+        st.subheader(f"Training MLP with {loss_type} Loss")
+        
         st.markdown("**Live Training Metrics**")
         metrics_placeholder = st.empty()
+        
+        with st.spinner("Initializing Data & Model..."):
+            datamodule = SalaryDataModule(df, batch_size=batch_size, test_size=0.2)
+            datamodule.setup()
+            
+            model = SalaryPredictor(
+                input_dim=769, 
+                hidden_layers=hidden_layers, 
+                neurons=neurons, 
+                dropout_rate=dropout_rate,
+                lr=lr,
+                loss_type=loss_type
+            )
+            
+            live_callback = StreamlitLiveMetrics(metrics_placeholder)
+            trainer = pl.Trainer(
+                max_epochs=max_epochs,
+                callbacks=[live_callback],
+                enable_progress_bar=False,
+                logger=False 
+            )
+            
+        with st.spinner("Training in progress..."):
+            trainer.fit(model, datamodule=datamodule)
+            st.success("Training complete!")
+            
+            st.session_state["model"] = model
+            st.session_state["datamodule"] = datamodule
+            st.session_state["loss_type"] = loss_type
+
+with col_right:
+    st.subheader("Interactive Try-It-Out")
+    custom_desc = st.text_area("Job Description", "Enter the major duties and responsibilities for a hypothetical job here...", height=150)
+    custom_year = st.number_input("Publication Year", min_value=1990, max_value=2050, value=2024)
     
-    with st.spinner("Initializing Data & Model..."):
-        datamodule = SalaryDataModule(df, batch_size=batch_size, test_size=0.2)
-        datamodule.setup()
-        
-        model = SalaryPredictor(
-            input_dim=769, 
-            hidden_layers=hidden_layers, 
-            neurons=neurons, 
-            dropout_rate=dropout_rate,
-            lr=lr,
-            loss_type=loss_type
-        )
-        
-        live_callback = StreamlitLiveMetrics(metrics_placeholder)
-        trainer = pl.Trainer(
-            max_epochs=max_epochs,
-            callbacks=[live_callback],
-            enable_progress_bar=False,
-            logger=False 
-        )
-        
-    with st.spinner("Training in progress..."):
-        trainer.fit(model, datamodule=datamodule)
-        st.success("Training complete!")
-        
-        st.session_state["model"] = model
-        st.session_state["datamodule"] = datamodule
-        st.session_state["loss_type"] = loss_type
+    if st.button("Predict Salary"):
+        if "model" not in st.session_state:
+            st.error("Please train a model first so we have weights available for prediction!")
+        else:
+            with st.spinner("Loading HuggingFace Embedder..."):
+                @st.cache_resource
+                def get_embedder():
+                    return SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
+                embedder = get_embedder()
+                
+            with st.spinner("Predicting..."):
+                emb = embedder.encode(["search_document: " + custom_desc])
+                
+                scaler = st.session_state["datamodule"].scaler
+                yr_scaled = scaler.transform([[custom_year]])
+                
+                x_custom = np.concatenate([emb, yr_scaled], axis=1)
+                x_tensor = torch.tensor(x_custom, dtype=torch.float32)
+                
+                model = st.session_state["model"]
+                model.eval()
+                with torch.no_grad():
+                    pred = model(x_tensor)
+                
+                loss_t = st.session_state["loss_type"]
+                if loss_t in ["MSE", "MAE"]:
+                    st.success(f"**Predicted Salary:** ${pred.item():,.2f}")
+                elif loss_t == "Quantile":
+                    qpreds = pred.squeeze().tolist()
+                    st.success("**Predicted Salary Bounds:**")
+                    st.write(f"- 10th Percentile: **${qpreds[0]:,.2f}**")
+                    st.write(f"- 50th Percentile (Median): **${qpreds[1]:,.2f}**")
+                    st.write(f"- 90th Percentile: **${qpreds[2]:,.2f}**")
 
 # Inference & Visualization
 if "model" in st.session_state:
@@ -93,6 +136,7 @@ if "model" in st.session_state:
     
     all_preds = []
     all_targets = []
+    all_embeddings = []
     
     with torch.no_grad():
         for batch in val_loader:
@@ -100,9 +144,11 @@ if "model" in st.session_state:
             preds = model(x)
             all_preds.append(preds)
             all_targets.append(y)
+            all_embeddings.append(x[:, :768]) # extract just the 768-D embeddings
             
     all_preds = torch.cat(all_preds, dim=0).numpy()
     all_targets = torch.cat(all_targets, dim=0).numpy().squeeze()
+    all_embeddings = torch.cat(all_embeddings, dim=0).numpy()
     
     if current_loss_type in ["MSE", "MAE"]:
         point_preds = all_preds.squeeze()
@@ -123,3 +169,13 @@ if "model" in st.session_state:
             st.plotly_chart(plot_actual_vs_predicted(all_targets, point_preds, title="Actual vs. 50th Percentile Prediction"), use_container_width=True)
             
         st.plotly_chart(plot_quantile_bands(all_targets, all_preds), use_container_width=True)
+        
+    st.markdown("---")
+    st.subheader("2D Representation of Job Descriptions (PCA)")
+    fig_actual, fig_pred = plot_pca_features(all_embeddings, all_targets, point_preds)
+    
+    col_pca1, col_pca2 = st.columns(2)
+    with col_pca1:
+        st.plotly_chart(fig_actual, use_container_width=True)
+    with col_pca2:
+        st.plotly_chart(fig_pred, use_container_width=True)

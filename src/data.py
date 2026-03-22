@@ -26,8 +26,8 @@ class SalaryDataModule(pl.LightningDataModule):
         emb_data = self.df[emb_cols].values
         
         # 3. Scale the Year column
-        scaler = MinMaxScaler()
-        year_scaled = scaler.fit_transform(year_data)
+        self.scaler = MinMaxScaler()
+        year_scaled = self.scaler.fit_transform(year_data)
         
         # 4. Concatenate scaled Year and embeddings (769-d input)
         X = np.concatenate([emb_data, year_scaled], axis=1)

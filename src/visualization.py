@@ -88,11 +88,17 @@ def plot_quantile_bands(y_true, q_preds, title="Quantile Predictions (10th - 50t
 
 from sklearn.decomposition import PCA
 
+import textwrap
+
 def plot_pca_features(embeddings, actual, predicted, df_val, title="PCA of Job Descriptions"):
     pca = PCA(n_components=2)
     components = pca.fit_transform(embeddings)
     
-    hover_desc = df_val['Description'].apply(lambda x: str(x)[:100] + '...')
+    def format_hover(text):
+        truncated = str(text)[:180] + '...' if len(str(text)) > 180 else str(text)
+        return '<br>'.join(textwrap.wrap(truncated, width=60))
+        
+    hover_desc = df_val['Description'].apply(format_hover)
     
     df = pd.DataFrame({
         'PCA1': components[:, 0],
@@ -104,18 +110,29 @@ def plot_pca_features(embeddings, actual, predicted, df_val, title="PCA of Job D
     
     fig_actual = px.scatter(
         df, x='PCA1', y='PCA2', color='Actual Salary',
-        hover_data=['Description'],
-        color_continuous_scale='Viridis',
+        hover_data={'PCA1': False, 'PCA2': False, 'Actual Salary': ':$,.0f', 'Description': True},
+        color_continuous_scale='Magma',
         title=title + " (Actual Salary)",
-        opacity=0.7
+        opacity=0.8
     )
     
     fig_pred = px.scatter(
         df, x='PCA1', y='PCA2', color='Predicted Salary',
-        hover_data=['Description'],
-        color_continuous_scale='Viridis',
+        hover_data={'PCA1': False, 'PCA2': False, 'Predicted Salary': ':$,.0f', 'Description': True},
+        color_continuous_scale='Magma',
         title=title + " (Predicted Salary)",
-        opacity=0.7
+        opacity=0.8
     )
+    
+    for fig in [fig_actual, fig_pred]:
+        fig.update_traces(marker=dict(size=9, line=dict(width=0)))
+        fig.update_layout(
+            xaxis_title="",
+            yaxis_title="",
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            hoverlabel=dict(bgcolor="white", font_size=13, font_family="Arial"),
+            coloraxis_colorbar=dict(title="")
+        )
     
     return fig_actual, fig_pred

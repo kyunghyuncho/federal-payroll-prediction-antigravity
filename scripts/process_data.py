@@ -37,7 +37,7 @@ def main():
     df.dropna(subset=["MinimumRange", "MaximumRange", "Description", "PublicationStartDate", "RateIntervalCode"], inplace=True)
     
     # 2. Filter: Only "Per Year"
-    df = df[df["RateIntervalCode"] == "Per Year"].copy()
+    df = df[df["RateIntervalCode"] == "PA"].copy()
     
     # Ensure numeric bounds
     df["MinimumRange"] = pd.to_numeric(df["MinimumRange"], errors="coerce")

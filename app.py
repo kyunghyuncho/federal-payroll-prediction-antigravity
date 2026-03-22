@@ -180,19 +180,22 @@ if "model" in st.session_state:
     
     col_pca1, col_pca2 = st.columns(2)
     with col_pca1:
-        sel_actual = st.plotly_chart(fig_actual, use_container_width=True, on_select="rerun", selection_mode="points")
+        sel_actual = st.plotly_chart(fig_actual, use_container_width=True, on_select="rerun")
     with col_pca2:
-        sel_pred = st.plotly_chart(fig_pred, use_container_width=True, on_select="rerun", selection_mode="points")
+        sel_pred = st.plotly_chart(fig_pred, use_container_width=True, on_select="rerun")
         
     def get_selected_index(sel):
-        if sel and hasattr(sel, "selection"):
-            pts = sel.selection.get("points", [])
-            if pts:
-                return pts[0]["point_index"]
-        if isinstance(sel, dict) and "selection" in sel:
-            pts = sel["selection"].get("points", [])
-            if pts:
-                return pts[0]["point_index"]
+        try:
+            sel_dict = dict(sel)
+            pts = sel_dict.get("selection", {}).get("points", [])
+            if len(pts) > 0:
+                p = pts[0]
+                idx = p.get("point_index")
+                if idx is None:
+                    idx = p.get("point_number")
+                return int(idx) if idx is not None else None
+        except Exception:
+            pass
         return None
 
     selected_idx = get_selected_index(sel_actual)

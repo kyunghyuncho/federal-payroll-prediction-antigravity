@@ -1,16 +1,25 @@
 import requests
 import json
 import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ==============================================================================
 # USAJOBS API INSTRUCTIONS FOR STUDENTS
 # ==============================================================================
 # 1. Go to https://developer.usajobs.gov/ and request an API key.
-# 2. Fill in your email and the API key below.
+# 2. Copy `.env.example` to `.env` and fill in your email and the API key.
 # ==============================================================================
 
-AUTHORIZATION_KEY = "YOUR_API_KEY_HERE"
-USER_AGENT_EMAIL = "your_email@example.com"
+AUTHORIZATION_KEY = os.environ.get("USAJOBS_API_KEY", "")
+USER_AGENT_EMAIL = os.environ.get("USAJOBS_EMAIL", "")
+
+if not AUTHORIZATION_KEY or not USER_AGENT_EMAIL:
+    print("Error: USAJOBS_API_KEY or USAJOBS_EMAIL not found in environment.")
+    print("Please set up your .env file according to .env.example.")
+    exit(1)
 
 HOST = "data.usajobs.gov"
 BASE_URL = "https://data.usajobs.gov/api/Search"

@@ -17,7 +17,7 @@ This project guides students through taking raw data from the USAJOBS API all th
    ```
 
 3. **Data Pipeline**
-   - Edit `scripts/acquire_data.py` to insert your USAJOBS API Key and Email.
+   - Copy `.env.example` to `.env` and insert your USAJOBS API Key and Email.
    - Run the extraction script:
      ```bash
      uv run scripts/acquire_data.py

@@ -9,7 +9,7 @@ This project guides students through taking raw data from the USAJOBS API all th
 
 1. **Prerequisites**
    - Install `uv` for python environment management.
-   - Install Ollama and pull the embedding model: `ollama run nomic-embed-text`
+   - Vectorization is handled natively in Python via HuggingFace `sentence-transformers`.
 
 2. **Environment Initialization**
    ```bash
@@ -22,7 +22,7 @@ This project guides students through taking raw data from the USAJOBS API all th
      ```bash
      uv run scripts/acquire_data.py
      ```
-   - Run the preprocessing and vectorization script (Make sure Ollama is running):
+   - Run the preprocessing and vectorization script:
      ```bash
      uv run scripts/process_data.py
      ```

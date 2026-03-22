@@ -1,25 +1,10 @@
 import json
 import pandas as pd
-import requests
 import datetime
 from tqdm import tqdm
+from sentence_transformers import SentenceTransformer
 
-OLLAMA_API_URL = "http://localhost:11434/api/embeddings"
-MODEL_NAME = "nomic-embed-text"
-
-def get_nomic_embedding(text):
-    """Fetch 768-D embedding from local Ollama endpoint."""
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": text
-    }
-    try:
-        response = requests.post(OLLAMA_API_URL, json=payload)
-        response.raise_for_status()
-        return response.json().get("embedding", [])
-    except Exception as e:
-        print(f"Error fetching embedding: {e}")
-        return []
+MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
 
 def main():
     print("Loading raw_usajobs_data.json...")
@@ -56,18 +41,18 @@ def main():
         print("No data left after filtering.")
         return
         
-    # 4. Local Text Vectorization (Nomic)
-    print(f"Vectorizing texts locally using Ollama ({MODEL_NAME})...")
-    embeddings = []
+    # 4. Local Text Vectorization (HuggingFace sentence-transformers)
+    print(f"Loading HuggingFace model ({MODEL_NAME})...")
+    # trust_remote_code=True is required for custom Nomic architecture
+    model = SentenceTransformer(MODEL_NAME, trust_remote_code=True)
     
-    # We use tqdm for a progress bar
-    for text in tqdm(df["Description"]):
-        # Truncate to avoid context limit issues (~8192 tokens for Nomic)
-        # Using a simplistic character truncation for safety
-        truncated_text = text[:15000] 
-        emb = get_nomic_embedding(truncated_text)
-        embeddings.append(emb)
-        
+    # Nomic embedding instructions: "search_document: " is the default format for clustering.
+    texts = ["search_document: " + str(t)[:15000] for t in df["Description"].tolist()]
+    
+    print(f"Vectorizing {len(texts)} texts locally...")
+    embeddings = model.encode(texts, show_progress_bar=True, batch_size=16)
+    embeddings = embeddings.tolist()
+    
     # Append the 768-dimensional vectors as new columns
     valid_indices = [i for i, emb in enumerate(embeddings) if len(emb) == 768]
     if len(valid_indices) < len(df):

@@ -42,9 +42,11 @@ def main():
         return
         
     # 4. Local Text Vectorization (HuggingFace sentence-transformers)
-    print(f"Loading HuggingFace model ({MODEL_NAME})...")
+    import torch
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    print(f"Loading HuggingFace model ({MODEL_NAME}) on {device.upper()}...")
     # trust_remote_code=True is required for custom Nomic architecture
-    model = SentenceTransformer(MODEL_NAME, trust_remote_code=True)
+    model = SentenceTransformer(MODEL_NAME, device=device, trust_remote_code=True)
     
     # Nomic embedding instructions: "search_document: " is the default format for clustering.
     texts = ["search_document: " + str(t)[:15000] for t in df["Description"].tolist()]

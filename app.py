@@ -95,7 +95,8 @@ with col_right:
             with st.spinner("Loading HuggingFace Embedder..."):
                 @st.cache_resource
                 def get_embedder():
-                    return SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
+                    device = "mps" if torch.backends.mps.is_available() else "cpu"
+                    return SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", device=device, trust_remote_code=True)
                 embedder = get_embedder()
                 
             with st.spinner("Predicting..."):

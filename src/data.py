@@ -16,6 +16,11 @@ class SalaryDataModule(pl.LightningDataModule):
         self.val_dataset = None
 
     def setup(self, stage=None):
+        # 0. Sort chronologically for valid time-series validation
+        if "PublicationStartDate" in self.df.columns:
+            self.df["PublicationStartDate"] = pd.to_datetime(self.df["PublicationStartDate"])
+            self.df = self.df.sort_values("PublicationStartDate").reset_index(drop=True)
+
         # 1. Separate features and target
         # Assuming the dataframe has "Year", "Target_Salary", and "dim_0" to "dim_767"
         year_data = self.df[['Year']].values
@@ -33,10 +38,10 @@ class SalaryDataModule(pl.LightningDataModule):
         X = np.concatenate([emb_data, year_scaled], axis=1)
         y = target_data
         
-        # 5. Train / Test Split
+        # 5. Train / Test Split (Chronological)
         indices = np.arange(len(self.df))
         X_train, X_val, y_train, y_val, idx_train, idx_val = train_test_split(
-            X, y, indices, test_size=self.test_size, random_state=42
+            X, y, indices, test_size=self.test_size, shuffle=False
         )
         self.df_train = self.df.iloc[idx_train].reset_index(drop=True)
         self.df_val = self.df.iloc[idx_val].reset_index(drop=True)

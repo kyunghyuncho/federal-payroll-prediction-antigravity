@@ -24,7 +24,7 @@ if not AUTHORIZATION_KEY or not USER_AGENT_EMAIL:
 HOST = "data.usajobs.gov"
 BASE_URL = "https://data.usajobs.gov/api/Search"
 
-def fetch_usajobs_data(num_pages=5, results_per_page=100):
+def fetch_usajobs_data(num_pages=500, results_per_page=100):
     headers = {
         "Host": HOST,
         "User-Agent": USER_AGENT_EMAIL,

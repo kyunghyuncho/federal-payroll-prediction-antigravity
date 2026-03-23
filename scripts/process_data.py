@@ -65,7 +65,7 @@ def main():
     emb_df = pd.DataFrame(valid_embeddings, index=df.index, columns=emb_cols)
     
     # Concat
-    final_df = pd.concat([df[["Year", "Target_Salary", "Description"]], emb_df], axis=1)
+    final_df = pd.concat([df[["PublicationStartDate", "Year", "Target_Salary", "Description"]], emb_df], axis=1)
     
     # 5. Final Export
     out_path = "processed_data.parquet"

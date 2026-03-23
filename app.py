@@ -126,26 +126,43 @@ with col_right:
 # Inference & Visualization
 if "model" in st.session_state:
     st.markdown("---")
-    st.subheader("Validation Set Analysis")
+    
+    col_hdr, col_tog = st.columns([3, 1])
+    with col_hdr:
+        st.subheader("Interactive Analysis & Visualization")
+    with col_tog:
+        show_all_data = st.checkbox("Show All Data (Train + Val)", value=False)
     
     model = st.session_state["model"]
     datamodule = st.session_state["datamodule"]
     current_loss_type = st.session_state["loss_type"]
     
     model.eval()
-    val_loader = datamodule.val_dataloader()
+    
+    from torch.utils.data import DataLoader
+    loaders_to_evaluate = []
+    
+    if show_all_data:
+        train_eval_loader = DataLoader(datamodule.train_dataset, batch_size=datamodule.batch_size, shuffle=False)
+        loaders_to_evaluate.append(train_eval_loader)
+        plot_df = pd.concat([datamodule.df_train, datamodule.df_val], ignore_index=True)
+    else:
+        plot_df = datamodule.df_val
+        
+    loaders_to_evaluate.append(datamodule.val_dataloader())
     
     all_preds = []
     all_targets = []
     all_embeddings = []
     
     with torch.no_grad():
-        for batch in val_loader:
-            x, y = batch
-            preds = model(x)
-            all_preds.append(preds)
-            all_targets.append(y)
-            all_embeddings.append(x[:, :768]) # extract just the 768-D embeddings
+        for loader in loaders_to_evaluate:
+            for batch in loader:
+                x, y = batch
+                preds = model(x)
+                all_preds.append(preds)
+                all_targets.append(y)
+                all_embeddings.append(x[:, :768]) # extract just the 768-D embeddings
             
     all_preds = torch.cat(all_preds, dim=0).numpy()
     all_targets = torch.cat(all_targets, dim=0).numpy().squeeze()
@@ -177,7 +194,7 @@ if "model" in st.session_state:
     st.subheader("2D Representation of Job Descriptions (PCA)")
     st.markdown("*(Click on any dot to see the job details card below!)*")
     
-    fig_actual, fig_pred = plot_pca_features(all_embeddings, all_targets, point_preds, datamodule.df_val)
+    fig_actual, fig_pred = plot_pca_features(all_embeddings, all_targets, point_preds, plot_df)
     
     col_pca1, col_pca2 = st.columns(2)
     with col_pca1:
@@ -206,7 +223,7 @@ if "model" in st.session_state:
     if selected_idx is not None:
         st.markdown("---")
         st.subheader("Job Details Card")
-        job_row = datamodule.df_val.iloc[selected_idx]
+        job_row = plot_df.iloc[selected_idx]
         
         st.info(f"**Actual Salary:** ${job_row['Target_Salary']:,.2f} | **Predicted Salary:** ${point_preds[selected_idx]:,.2f} | **Year:** {job_row['Year']}")
         st.write(f"**Description:** {job_row['Description']}")
@@ -218,6 +235,6 @@ if "model" in st.session_state:
         top_indices = np.argsort(sims)[::-1][1:4]
         
         for idx in top_indices:
-            nn_row = datamodule.df_val.iloc[idx]
+            nn_row = plot_df.iloc[idx]
             nn_sim = sims[idx]
             st.markdown(f"- **Similarity: {nn_sim:.2f}** | **Salary:** ${nn_row['Target_Salary']:,.2f} | *{str(nn_row['Description'])[:200]}...*")

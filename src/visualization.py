@@ -86,6 +86,40 @@ def plot_quantile_bands(y_true, q_preds, title="Quantile Predictions (10th - 50t
     
     return fig
 
+def plot_quantile_calibration(y_true, q_preds, quantiles=[0.1, 0.5, 0.9], title="Quantile Calibration Error"):
+    empirical_coverage = []
+    for i, q in enumerate(quantiles):
+        coverage = np.mean(y_true <= q_preds[:, i])
+        empirical_coverage.append(coverage)
+        
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=[0, 1], y=[0, 1],
+        mode='lines',
+        name='Perfect Calibration',
+        line=dict(color='gray', dash='dash')
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=quantiles, y=empirical_coverage,
+        mode='lines+markers+text',
+        name='Model Calibration',
+        text=[f"{c:.1%}" for c in empirical_coverage],
+        textposition="bottom right",
+        marker=dict(size=12, color='#ef553b')
+    ))
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title="Target Quantile",
+        yaxis_title="Empirical Coverage (Portion of Data ≤ Pred)",
+        xaxis=dict(range=[0, 1.05], tickformat=".0%"),
+        yaxis=dict(range=[0, 1.05], tickformat=".0%"),
+        legend=dict(x=0.01, y=0.99)
+    )
+    
+    return fig
 from sklearn.decomposition import PCA
 
 import textwrap

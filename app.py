@@ -9,7 +9,7 @@ from sentence_transformers import SentenceTransformer
 from src.data import SalaryDataModule
 from src.model import SalaryPredictor
 from src.callbacks import StreamlitLiveMetrics
-from src.visualization import plot_residual_distribution, plot_actual_vs_predicted, plot_quantile_bands, plot_pca_features
+from src.visualization import plot_residual_distribution, plot_actual_vs_predicted, plot_quantile_bands, plot_pca_features, plot_quantile_calibration
 
 st.set_page_config(layout="wide", page_title="Federal Salary Predictor")
 
@@ -186,7 +186,11 @@ if "model" in st.session_state:
         with col_v2:
             st.plotly_chart(plot_actual_vs_predicted(all_targets, point_preds, title="Actual vs. 50th Percentile Prediction"), use_container_width=True)
             
-        st.plotly_chart(plot_quantile_bands(all_targets, all_preds), use_container_width=True)
+        col_q1, col_q2 = st.columns(2)
+        with col_q1:
+            st.plotly_chart(plot_quantile_bands(all_targets, all_preds), use_container_width=True)
+        with col_q2:
+            st.plotly_chart(plot_quantile_calibration(all_targets, all_preds), use_container_width=True)
         
     from sklearn.metrics.pairwise import cosine_similarity
 
